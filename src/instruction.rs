@@ -70,7 +70,6 @@ impl Opcode {
     pub fn trap_vector(&self) -> u8 {
         (self.0 & 0xFF) as u8
     }
-
     #[inline]
     pub fn sign_extend(data: u16, size: u16) -> u16 {
         (((data << (16 - size)) as i16) >> (16 - size)) as u16
@@ -142,8 +141,8 @@ impl Instruction {
             )),
             0b1100 => Some(Instruction::Jmp(opcode.oxoo())),
             0b0100 => match opcode.bit11() {
-                false => Some(Instruction::Jsrr(opcode.oxoo())),
-                true => Some(Instruction::Jsr(opcode.offset11())),
+                false => Some(Instruction::Jsr(opcode.offset11())),
+                true => Some(Instruction::Jsrr(opcode.oxoo())),
             },
             0b0010 => Some(Instruction::Ld(opcode.xooo(), opcode.offset9())),
             0b1010 => Some(Instruction::Ldi(opcode.xooo(), opcode.offset9())),

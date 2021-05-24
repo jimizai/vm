@@ -91,8 +91,8 @@ fn mem_read(mem: &mut [u16], addr: u16) -> u16 {
         let mut buffer = [0; 1];
         std::io::stdin().read_exact(&mut buffer).unwrap();
         if buffer[0] != 0 {
-            mem[MemoryMappedRegisters::KBDR as usize] = 1 << 15;
-            mem[MemoryMappedRegisters::KBSR as usize] = buffer[0] as u16
+            mem[MemoryMappedRegisters::KBSR as usize] = 1 << 15;
+            mem[MemoryMappedRegisters::KBDR as usize] = buffer[0] as u16
         } else {
             mem[MemoryMappedRegisters::KBSR as usize] = 0
         }
@@ -108,21 +108,28 @@ fn abort() {
     std::process::exit(1);
 }
 
-fn get16(mem: &[u8], addr: usize) -> u16 {
-    ((mem[addr] as u16) << 8) + mem[addr + 1] as u16
+fn get16(mem: &[u8], ind: usize) -> u16 {
+    ((mem[ind] as u16) << 8) + mem[ind + 1] as u16
 }
 
+// https://doc.rust-lang.org/rust-by-example/std_misc/file/open.html
 fn read_image(mem: &mut [u16], image_path: &str) -> u32 {
-    let path = Path::new(&image_path);
-    let mut file = File::open(&path).expect("Coudn't open file");
+    let path = Path::new(image_path);
+    // println!("[*] Loading {}", path.to_str().unwrap());
+    let mut file = File::open(&path).expect("Couldn't open file.");
+
     const SIZE: u32 = std::u16::MAX as u32 * 2 - 2;
     let mut mem_buffer: [u8; SIZE as usize] = [0; SIZE as usize];
-    file.read(&mut mem_buffer).expect("Coudn't read file.");
+    file.read(&mut mem_buffer).expect("Couldn't read file.");
     let length = file.metadata().unwrap().len();
+    // println!("[*] File length {}", length);
+
     let base = get16(&mem_buffer, 0) as usize;
     for i in (2..length).step_by(2) {
+        // println!("{}",i);
         mem[base + (i / 2 - 1) as usize] = get16(&mem_buffer, i as usize);
     }
+    // println!("{:?}", &mem[0x3000..0x4000]);
     length as u32
 }
 
@@ -144,8 +151,6 @@ fn run() {
         let opcode = Opcode::from(mem_read(&mut memory, regs[Registers::PC as usize]));
         let instruction = Instruction::new(opcode).unwrap();
         regs[Registers::PC as usize] += 1;
-
-        println!("{}", regs[Registers::PC as usize]);
 
         match instruction {
             Instruction::Br(n, z, p, offset) => {
@@ -169,10 +174,7 @@ fn run() {
                 regs[dr] = regs[sr1] & (imm5 as u16);
                 flags.update(regs[dr])
             }
-            Instruction::Jmp(base_r) => {
-                regs[Registers::R7 as usize] = regs[Registers::PC as usize];
-                regs[Registers::PC as usize] = regs[base_r]
-            }
+            Instruction::Jmp(base_r) => regs[Registers::PC as usize] = regs[base_r],
             Instruction::Jsr(offset) => {
                 regs[Registers::R7 as usize] = regs[Registers::PC as usize];
                 regs[Registers::PC as usize] += offset
